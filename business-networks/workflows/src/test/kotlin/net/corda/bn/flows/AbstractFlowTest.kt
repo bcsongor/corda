@@ -1,10 +1,8 @@
 package net.corda.bn.flows
 
 import net.corda.bn.states.MembershipState
-import net.corda.bn.states.MembershipStatus
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.CordaX500Name
-import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.node.MockNetwork
@@ -12,6 +10,7 @@ import net.corda.testing.node.MockNetworkParameters
 import net.corda.testing.node.MockNodeParameters
 import net.corda.testing.node.StartedMockNode
 import net.corda.testing.node.TestCordapp
+import org.junit.After
 import org.junit.Before
 
 abstract class AbstractFlowTest(
@@ -38,6 +37,11 @@ abstract class AbstractFlowTest(
         }
 
         mockNetwork.runNetwork()
+    }
+
+    @After
+    fun tearDown() {
+        mockNetwork.stopNodes()
     }
 
     private fun createNode(name: CordaX500Name) = mockNetwork.createNode(MockNodeParameters(legalName = name))
@@ -69,6 +73,11 @@ abstract class AbstractFlowTest(
         val future = initiator.startFlow(SuspendMembershipFlow(membershipId))
         mockNetwork.runNetwork()
         return future.getOrThrow()
+    }
+
+    protected fun runRequestAndSuspendMembershipFlow(initiator: StartedMockNode, authorisedNode: StartedMockNode, networkId: String): SignedTransaction {
+        val membership = runRequestMembershipFlow(initiator, authorisedNode, networkId).tx.outputStates.single() as MembershipState
+        return runSuspendMembershipFlow(authorisedNode, membership.linearId)
     }
 
     protected fun runRevokeMembershipFlow(initiator: StartedMockNode, membershipId: UniqueIdentifier): SignedTransaction {
