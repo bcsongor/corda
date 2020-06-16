@@ -1,0 +1,37 @@
+apply plugin: 'kotlin'
+apply plugin: 'net.corda.plugins.publish-utils'
+apply plugin: 'net.corda.plugins.quasar-utils'
+apply plugin: 'net.corda.plugins.cordapp'
+apply plugin: 'com.jfrog.artifactory'
+
+description 'Corda Business Networks'
+
+dependencies {
+    cordaCompile project(':core')
+    cordaCompile project(':business-networks:contracts')
+
+    testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junit_jupiter_version}"
+    testImplementation "junit:junit:$junit_version"
+
+    testRuntimeOnly "org.junit.vintage:junit-vintage-engine:${junit_vintage_version}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junit_jupiter_version}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${junit_platform_version}"
+
+    // Guava: Google test library (collections test suite)
+    testCompile "com.google.guava:guava-testlib:$guava_version"
+
+    // Bring in the MockNode infrastructure for writing protocol unit tests.
+    testCompile project(":node-driver")
+
+    // AssertJ: for fluent assertions for testing
+    testCompile "org.assertj:assertj-core:$assertj_version"
+}
+
+jar {
+    baseName 'corda-business-network-workflows'
+}
+
+publish {
+    name jar.baseName
+}
