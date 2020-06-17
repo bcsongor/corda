@@ -10,9 +10,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class SuspendMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1, numberOfRegularMembers = 2) {
+class SuspendMembershipFlowTest : MembershipManagementFlowTest(numberOfAuthorisedMembers = 1, numberOfRegularMembers = 2) {
 
-    @Test
+    @Test(timeout = 300_000)
     fun `suspend membership flow should fail if membership with given ID doesn't exist`() {
         val authorisedMember = authorisedMembers.first()
 
@@ -22,7 +22,7 @@ class SuspendMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1
         }
     }
 
-    @Test
+    @Test(timeout = 300_000)
     fun `suspend membership flow should fail if initiator is not part of the business network or if its membership is not active`() {
         val authorisedMember = authorisedMembers.first()
         val regularMember = regularMembers.first()
@@ -41,7 +41,7 @@ class SuspendMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1
         }
     }
 
-    @Test
+    @Test(timeout = 300_000)
     fun `suspend membership flow happy path`() {
         val authorisedMember = authorisedMembers.first()
         val regularMember = regularMembers.first()
@@ -65,5 +65,12 @@ class SuspendMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1
         assertTrue(command.value is MembershipContract.Commands.Suspend)
 
         // also check ledgers
+        listOf(authorisedMember, regularMember).forEach { member ->
+            getAllMembershipsFromVault(member, networkId).apply {
+                assertEquals(2, size)
+                assertTrue(any { it.identity == authorisedMember.identity() })
+                assertTrue(any { it.identity == regularMember.identity() })
+            }
+        }
     }
 }

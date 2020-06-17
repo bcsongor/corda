@@ -21,8 +21,19 @@ import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.unwrap
 
+/**
+ * This abstract class is extended by any flow which will use common membership management helper methods.
+ */
 abstract class MembershipManagementFlow<T> : FlowLogic<T>() {
 
+    /**
+     * Performs authorisation checks of the flow initiator using provided authorisation methods.
+     *
+     * @param networkId ID of the Business Network in which we perform authorisation.
+     * @param databaseService Service used to query vault for memberships.
+     * @param authorisationMethod Method which does actual authorisation check over membership.
+     */
+    @Suppress("ThrowsCount")
     @Suspendable
     protected fun authorise(networkId: String, databaseService: DatabaseService, authorisationMethod: (MembershipState) -> Boolean) {
         val ourMembership = databaseService.getMembership(networkId, ourIdentity)?.state?.data
@@ -35,6 +46,16 @@ abstract class MembershipManagementFlow<T> : FlowLogic<T>() {
         }
     }
 
+    /**
+     * Takes set of observers and collects signatures of the transaction from the specified subset of signers. In the end finalises
+     * finalises transaction over all observers and returns it.
+     *
+     * @param builder Transaction builder for the transaction to be signed and finalised.
+     * @param observerSessions Sessions that will receive finalised transaction.
+     * @param signers Parties from the [observerSessions] which need to sign the transaction.
+     *
+     * @return Finalised all signed transaction.
+     */
     @Suspendable
     protected fun collectSignaturesAndFinaliseTransaction(
             builder: TransactionBuilder,
@@ -51,6 +72,10 @@ abstract class MembershipManagementFlow<T> : FlowLogic<T>() {
         return subFlow(FinalityFlow(allSignedTransaction, observerSessions, StatesToRecord.ALL_VISIBLE))
     }
 
+    /**
+     * This method needs to be called in the responder flow that is initiated by flow which calls [collectSignaturesAndFinaliseTransaction]
+     * method. Provides signature over transaction with specified explicit command check and receives finalised transaction.
+     */
     @Suspendable
     protected fun signAndReceiveFinalisedTransaction(session: FlowSession, commandCheck: (Command<*>) -> Unit) {
         val isSigner = session.receive<Boolean>().unwrap { it }
@@ -69,6 +94,18 @@ abstract class MembershipManagementFlow<T> : FlowLogic<T>() {
         subFlow(ReceiveFinalityFlow(session, stx?.id, StatesToRecord.ALL_VISIBLE))
     }
 
+    /**
+     * Sends memberships of all members authorised to modify memberships to [activatedMembership] member. It also sends all non revoked
+     * memberships to [activatedMembership] member if it is authorised to modify memberships.
+     *
+     * @param networkId ID of the Business Network from which we query for memberships to be sent.
+     * @param activatedMembership Just activated member to which mentioned memberships are sent.
+     * @param authorisedMemberships Set of memberships of all members authorised to modify memberships.
+     * @param observerSessions Sessions of all observers who get finalised transaction.
+     * @param auth Object containing authorisation methods.
+     * @param databaseService Service used to query vault for memberships.
+     */
+    @Suppress("LongParameterList")
     @Suspendable
     protected fun onboardMembershipSync(
             networkId: String,
@@ -86,6 +123,13 @@ abstract class MembershipManagementFlow<T> : FlowLogic<T>() {
         sendMemberships(authorisedMemberships + pendingAndSuspendedMemberships, observerSessions, activatedMemberSession)
     }
 
+    /**
+     * Helper methods used to send membership states' transactions to [destinationSession].
+     *
+     * @param memberships Collection of all memberships to be sent.
+     * @param observerSessions Sessions of all observers who get finalised transaction.
+     * @param destinationSession Session to which [memberships] will be sent.
+     */
     @Suspendable
     private fun sendMemberships(
             memberships: Collection<StateAndRef<MembershipState>>,
@@ -100,6 +144,10 @@ abstract class MembershipManagementFlow<T> : FlowLogic<T>() {
         membershipsTransactions.forEach { subFlow(SendTransactionFlow(destinationSession, it)) }
     }
 
+    /**
+     * This method needs to be called in the responder flow that is initiated by flow which calls [sendMemberships] method. Receives all of
+     * the transactions sent via [sendMemberships] method.
+     */
     @Suspendable
     protected fun receiveMemberships(session: FlowSession) {
         val txNumber = session.receive<Int>().unwrap { it }

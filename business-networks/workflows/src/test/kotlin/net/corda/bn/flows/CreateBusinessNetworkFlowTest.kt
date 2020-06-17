@@ -7,9 +7,9 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class CreateBusinessNetworkFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1, numberOfRegularMembers = 0) {
+class CreateBusinessNetworkFlowTest : MembershipManagementFlowTest(numberOfAuthorisedMembers = 1, numberOfRegularMembers = 0) {
 
-    @Test
+    @Test(timeout = 300_000)
     fun `create business network flow happy path`() {
         val authorisedMember = authorisedMembers.first()
         val (membership, command) = runCreateBusinessNetworkFlow(authorisedMember).run {
@@ -17,13 +17,20 @@ class CreateBusinessNetworkFlowTest : AbstractFlowTest(numberOfAuthorisedMembers
             tx.outputs.single() to tx.commands.single()
         }
 
-        membership.apply {
+        val networkId = membership.run {
             assertEquals(MembershipContract.CONTRACT_NAME, contract)
             assertTrue(data is MembershipState)
             val data = data as MembershipState
             assertEquals(authorisedMember.identity(), data.identity)
             assertEquals(MembershipStatus.ACTIVE, data.status)
+
+            data.networkId
         }
         assertTrue(command.value is MembershipContract.Commands.Activate)
+
+        // also check ledger
+        getAllMembershipsFromVault(authorisedMember, networkId).single().apply {
+            assertEquals(authorisedMember.identity(), identity)
+        }
     }
 }

@@ -1,6 +1,7 @@
 package net.corda.bn.flows
 
 import net.corda.bn.states.MembershipState
+import net.corda.bn.states.MembershipStatus
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
@@ -13,7 +14,7 @@ import net.corda.testing.node.TestCordapp
 import org.junit.After
 import org.junit.Before
 
-abstract class AbstractFlowTest(
+abstract class MembershipManagementFlowTest(
         private val numberOfAuthorisedMembers: Int,
         private val numberOfRegularMembers: Int
 ) {
@@ -84,6 +85,14 @@ abstract class AbstractFlowTest(
         val future = initiator.startFlow(RevokeMembershipFlow(membershipId))
         mockNetwork.runNetwork()
         return future.getOrThrow()
+    }
+
+    protected fun getAllMembershipsFromVault(node: StartedMockNode, networkId: String): List<MembershipState> {
+        val databaseService = node.services.cordaService(DatabaseService::class.java)
+        return databaseService.getAllMembershipsWithStatus(networkId, MembershipStatus.PENDING, MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED)
+                .map {
+                    it.state.data
+                }
     }
 }
 

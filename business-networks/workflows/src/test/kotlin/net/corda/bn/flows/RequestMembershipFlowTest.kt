@@ -1,10 +1,6 @@
 package net.corda.bn.flows
 
-import com.nhaarman.mockito_kotlin.any
-import com.nhaarman.mockito_kotlin.mock
-import com.nhaarman.mockito_kotlin.whenever
 import net.corda.bn.contracts.MembershipContract
-import net.corda.bn.flows.extensions.BNMemberAuth
 import net.corda.bn.states.MembershipState
 import net.corda.bn.states.MembershipStatus
 import net.corda.core.flows.FlowException
@@ -13,9 +9,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class RequestMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1, numberOfRegularMembers = 2) {
+class RequestMembershipFlowTest : MembershipManagementFlowTest(numberOfAuthorisedMembers = 1, numberOfRegularMembers = 2) {
 
-    @Test
+    @Test(timeout = 300_000)
     fun `request membership flow should fail if initiator is already business network member`() {
         val authorisedMember = authorisedMembers.first()
 
@@ -26,7 +22,7 @@ class RequestMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1
         }
     }
 
-    @Test
+    @Test(timeout = 300_000)
     fun `request membership flow should fail if receiver is not member of a business network`() {
         val authorisedMember = authorisedMembers.first()
         val regularMember = regularMembers.first()
@@ -42,13 +38,8 @@ class RequestMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1
         }
     }
 
-    @Test
-    fun `request membership flow should fail if receiver's membership is not active or it is not authorised to modify membership`() {
-//        val auth = mock<BNMemberAuth>()
-//        val bnUtils = mock<BNUtils>()
-//        whenever(auth.canActivateMembership(any())).then { false }
-//        whenever(bnUtils.loadBNMemberAuth()).then { auth }
-
+    @Test(timeout = 300_000)
+    fun `request membership flow should fail if receiver's membership is not active`() {
         val authorisedMember = authorisedMembers.first()
         val regularMember = regularMembers.first()
         val pendingMember = regularMembers[1]
@@ -59,12 +50,9 @@ class RequestMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1
         assertFailsWith<FlowException>("Receiver's membership is not active") {
             runRequestMembershipFlow(regularMember, pendingMember, networkId)
         }
-//        assertFailsWith<FlowException>("Receiver is not authorised to activate membership") {
-//            runRequestMembershipFlow(regularMember, authorisedMember, networkId)
-//        }
     }
 
-    @Test
+    @Test(timeout = 300_000)
     fun `request membership flow happy path`() {
         val authorisedMember = authorisedMembers.first()
         val regularMember = regularMembers.first()
@@ -88,5 +76,13 @@ class RequestMembershipFlowTest : AbstractFlowTest(numberOfAuthorisedMembers = 1
         assertTrue(command.value is MembershipContract.Commands.Request)
 
         // also check ledgers
+        getAllMembershipsFromVault(authorisedMember, networkId).apply {
+            assertEquals(2, size)
+            assertTrue(any { it.identity == authorisedMember.identity() })
+            assertTrue(any { it.identity == regularMember.identity() })
+        }
+        getAllMembershipsFromVault(regularMember, networkId).single().apply {
+            assertEquals(regularMember.identity(), identity)
+        }
     }
 }

@@ -12,6 +12,17 @@ import net.corda.core.flows.StartableByRPC
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 
+/**
+ * This flow is initiated by any member authorised to suspend membership. Queries for the membership with [membershipId] linear ID and
+ * moves it to [MembershipStatus.SUSPENDED] status. Transaction is signed by all active members authorised to modify membership and stored
+ * on ledgers of all members authorised to modify membership and on suspended member's ledger.
+ *
+ * If this is new onboarded member (it's membership was in pending status before suspension), it will receive all "authorised to modify
+ * membership" member's membership states. The new member will also receive all non revoked memberships if it is authorised to modify
+ * memberships.
+ *
+ * @property membershipId ID of the membership to be suspended.
+ */
 @InitiatingFlow
 @StartableByRPC
 class SuspendMembershipFlow(private val membershipId: UniqueIdentifier) : MembershipManagementFlow<SignedTransaction>() {

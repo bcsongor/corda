@@ -11,6 +11,13 @@ import net.corda.core.flows.StartableByRPC
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 
+/**
+ * This flow is initiated by any member authorised to revoke membership. Queries for the membership with [membershipId] linear ID and
+ * marks it historic. Transaction is signed by all active members authorised to modify membership and stored on ledgers of all members
+ * authorised to modify membership and on revoked member's ledger.
+ *
+ * @property membershipId ID of the membership to be revoked.
+ */
 @InitiatingFlow
 @StartableByRPC
 class RevokeMembershipFlow(private val membershipId: UniqueIdentifier) : MembershipManagementFlow<SignedTransaction>() {
